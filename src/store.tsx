@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AppUser, CashClosing, Customer, Delivery, DocType, ErpData, Expense, ModuleId, Payment, PaymentMethod, Product,
   Purchase, PurchaseItem, Sale, SaleItem, Settings, StaffMember, Supplier, TailorOrder, Variant,
@@ -6,6 +6,7 @@ import type {
 import { ROLE_MODULES } from './types';
 import { buildSeed, defaultSettings } from './data/seed';
 import { addDays, isLive, lineTotal, nowTime, sum, todayStr, uid, variantLabel } from './utils/helpers';
+import { isAutoSyncEnabled, pullErpDataFromNeon, pushErpDataToNeon } from './services/neonService';
 
 const KEY = 'mnazir_beauty_erp_v4';
 const SESSION = 'mnazir_beauty_erp_session_v4';
@@ -68,6 +69,11 @@ export interface ErpApi extends ErpData {
   /* paramètres / données */
   updateSettings: (s: Partial<Settings>) => void;
   exportData: () => string; importData: (json: string) => boolean; resetAll: () => void; loadDemo: () => void;
+  /* base de données Neon Cloud PostgreSQL */
+  neonSyncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  lastNeonSync: string | null;
+  pushToNeon: (customUrl?: string) => Promise<boolean>;
+  pullFromNeon: (customUrl?: string) => Promise<boolean>;
 }
 
 const Ctx = createContext<ErpApi | null>(null);
@@ -122,10 +128,55 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [toastMsg, setToastMsg] = useState<{ msg: string; kind: 'ok' | 'err' } | null>(null);
   const toastT = useRef<number | undefined>(undefined);
+  const [neonSyncStatus, setNeonSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [lastNeonSync, setLastNeonSync] = useState<string | null>(null);
 
   const toast = useCallback((msg: string, kind: 'ok' | 'err' = 'ok') => {
     setToastMsg({ msg, kind }); window.clearTimeout(toastT.current); toastT.current = window.setTimeout(() => setToastMsg(null), 3200);
   }, []);
+
+  const pushToNeon = useCallback(async (customUrl?: string) => {
+    setNeonSyncStatus('syncing');
+    try {
+      await pushErpDataToNeon(ref.current, customUrl);
+      setNeonSyncStatus('synced');
+      setLastNeonSync(new Date().toLocaleTimeString('fr-FR'));
+      return true;
+    } catch {
+      setNeonSyncStatus('error');
+      return false;
+    }
+  }, []);
+
+  const pullFromNeon = useCallback(async (customUrl?: string) => {
+    setNeonSyncStatus('syncing');
+    try {
+      const remote = await pullErpDataFromNeon(customUrl);
+      if (remote && remote.products) {
+        recompute(remote);
+        ref.current = remote;
+        setData(remote);
+        localStorage.setItem(KEY, JSON.stringify(remote));
+        setNeonSyncStatus('synced');
+        setLastNeonSync(new Date().toLocaleTimeString('fr-FR'));
+        return true;
+      }
+      // Si la table Neon est vide au premier démarrage, on y envoie les données initiales M.Nazir_Beauty
+      await pushErpDataToNeon(ref.current, customUrl);
+      setNeonSyncStatus('synced');
+      setLastNeonSync(new Date().toLocaleTimeString('fr-FR'));
+      return true;
+    } catch {
+      setNeonSyncStatus('error');
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAutoSyncEnabled()) {
+      pullFromNeon();
+    }
+  }, [pullFromNeon]);
 
   const mutate = useCallback(<R,>(fn: (d: ErpData) => R): R => {
     const d: ErpData = structuredClone(ref.current);
@@ -136,6 +187,15 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const serialized = JSON.stringify(d);
       localStorage.setItem(KEY, serialized);
       fetch('/api/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: serialized }).catch(() => {});
+      if (isAutoSyncEnabled()) {
+        setNeonSyncStatus('syncing');
+        pushErpDataToNeon(d)
+          .then(() => {
+            setNeonSyncStatus('synced');
+            setLastNeonSync(new Date().toLocaleTimeString('fr-FR'));
+          })
+          .catch(() => setNeonSyncStatus('error'));
+      }
     } catch { /* quota */ }
     return r;
   }, []);
@@ -275,10 +335,14 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     updateSettings: s => mutate(d => { d.settings = { ...d.settings, ...s }; }),
     exportData: () => JSON.stringify(ref.current),
-    importData: json => { try { const d = JSON.parse(json); if (!d.products || !d.settings) return false; ref.current = d; setData(d); localStorage.setItem(KEY, json); return true; } catch { return false; } },
-    resetAll: () => { const d = emptyData(ref.current); ref.current = d; setData(d); localStorage.setItem(KEY, JSON.stringify(d)); setCart([]); },
-    loadDemo: () => { const d = buildSeed(); d.isDemo = true; ref.current = d; setData(d); localStorage.setItem(KEY, JSON.stringify(d)); setCart([]); },
-  }), [data, currentUser, tab, cart, toastMsg, mutate, toast]);
+    importData: json => { try { const d = JSON.parse(json); if (!d.products || !d.settings) return false; ref.current = d; setData(d); localStorage.setItem(KEY, json); if (isAutoSyncEnabled()) pushErpDataToNeon(d).catch(() => {}); return true; } catch { return false; } },
+    resetAll: () => { const d = emptyData(ref.current); ref.current = d; setData(d); localStorage.setItem(KEY, JSON.stringify(d)); setCart([]); if (isAutoSyncEnabled()) pushErpDataToNeon(d).catch(() => {}); },
+    loadDemo: () => { const d = buildSeed(); d.isDemo = true; ref.current = d; setData(d); localStorage.setItem(KEY, JSON.stringify(d)); setCart([]); if (isAutoSyncEnabled()) pushErpDataToNeon(d).catch(() => {}); },
+    neonSyncStatus,
+    lastNeonSync,
+    pushToNeon,
+    pullFromNeon,
+  }), [data, currentUser, tab, cart, toastMsg, mutate, toast, neonSyncStatus, lastNeonSync, pushToNeon, pullFromNeon]);
 
   function date0() { return todayStr(); }
   function receive(d: ErpData, p: Purchase) {

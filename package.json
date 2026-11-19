@@ -9,6 +9,7 @@
     "preview": "vite preview --port 3005 --host 127.0.0.1"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

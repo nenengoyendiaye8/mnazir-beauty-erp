@@ -3,7 +3,7 @@
 export type ModuleId =
   | 'dashboard' | 'pos' | 'ventes' | 'facturation' | 'sur_mesure' | 'livraisons'
   | 'stock' | 'achats' | 'clients' | 'fournisseurs'
-  | 'finances' | 'personnel' | 'rapports' | 'utilisateurs' | 'parametres';
+  | 'finances' | 'personnel' | 'rapports' | 'utilisateurs' | 'parametres' | 'base_neon';
 
 export type PaymentMethod = 'Espèces' | 'Wave' | 'Orange Money' | 'Free Money' | 'Carte Bancaire' | 'Virement' | 'Chèque';
 export const PAYMENT_METHODS: PaymentMethod[] = ['Espèces', 'Wave', 'Orange Money', 'Free Money', 'Carte Bancaire', 'Virement', 'Chèque'];
@@ -228,7 +228,7 @@ export interface ErpData {
 
 /** Permissions par rôle */
 export const ROLE_MODULES: Record<Role, ModuleId[]> = {
-  admin: ['dashboard', 'pos', 'ventes', 'facturation', 'sur_mesure', 'livraisons', 'stock', 'achats', 'clients', 'fournisseurs', 'finances', 'personnel', 'rapports', 'utilisateurs', 'parametres'],
-  gerant: ['dashboard', 'pos', 'ventes', 'facturation', 'sur_mesure', 'livraisons', 'stock', 'achats', 'clients', 'fournisseurs', 'finances', 'personnel', 'rapports'],
+  admin: ['dashboard', 'pos', 'ventes', 'facturation', 'sur_mesure', 'livraisons', 'stock', 'achats', 'clients', 'fournisseurs', 'finances', 'personnel', 'rapports', 'utilisateurs', 'parametres', 'base_neon'],
+  gerant: ['dashboard', 'pos', 'ventes', 'facturation', 'sur_mesure', 'livraisons', 'stock', 'achats', 'clients', 'fournisseurs', 'finances', 'personnel', 'rapports', 'base_neon'],
   caissier: ['dashboard', 'pos', 'ventes', 'sur_mesure', 'livraisons', 'clients'],
 };

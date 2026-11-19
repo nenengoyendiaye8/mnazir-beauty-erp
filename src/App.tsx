@@ -18,6 +18,7 @@ import { StaffModule } from './components/StaffModule';
 import { ReportsModule } from './components/ReportsModule';
 import { UsersModule } from './components/UsersModule';
 import { SettingsModule } from './components/SettingsModule';
+import { NeonDatabaseModule } from './components/NeonDatabaseModule';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err?: Error }> {
   state: { err?: Error } = {};
@@ -44,7 +45,7 @@ const Shell: React.FC = () => {
   const views: Record<string, React.ReactNode> = {
     dashboard: <Dashboard />, pos: <PosModule />, ventes: <SalesModule />, facturation: <InvoicingModule />, sur_mesure: <TailorModule />,
     livraisons: <DeliveriesModule />, stock: <StockModule />, achats: <PurchasesModule />, fournisseurs: <SuppliersModule />, clients: <CustomersModule />,
-    finances: <FinanceModule />, personnel: <StaffModule />, rapports: <ReportsModule />, utilisateurs: <UsersModule />, parametres: <SettingsModule />,
+    finances: <FinanceModule />, personnel: <StaffModule />, rapports: <ReportsModule />, utilisateurs: <UsersModule />, parametres: <SettingsModule />, base_neon: <NeonDatabaseModule />,
   };
 
   return (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard, ShoppingCart, Receipt, FileText, FlaskConical, Truck, Boxes, PackagePlus, Users, Factory,
-  Wallet, UserCog, BarChart3, ShieldCheck, Settings as Cog, LogOut, Menu, X, AlertTriangle, Phone,
+  Wallet, UserCog, BarChart3, ShieldCheck, Settings as Cog, LogOut, Menu, X, AlertTriangle, Phone, Database,
 } from 'lucide-react';
 import { useErp } from '../store';
 import type { ModuleId } from '../types';
@@ -32,6 +32,7 @@ const GROUPS: Array<{ title: string; items: Array<{ id: ModuleId; label: string;
     { id: 'rapports', label: 'Analytique & rapports', icon: BarChart3 },
     { id: 'utilisateurs', label: 'Comptes & habilitations', icon: ShieldCheck },
     { id: 'parametres', label: 'Configuration', icon: Cog },
+    { id: 'base_neon', label: 'Base Cloud (Neon SQL)', icon: Database },
   ] },
 ];
 
@@ -51,6 +52,7 @@ export const TITLES: Record<ModuleId, string> = {
   rapports: 'Rapports Financiers & Analytique',
   utilisateurs: 'Habilitations & Codes d\'Accès',
   parametres: 'Paramètres de l\'Établissement',
+  base_neon: 'Base de Données Cloud (Neon PostgreSQL)',
 };
 
 export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
@@ -66,6 +68,7 @@ export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) =
     facturation: debts ? { t: `${debts}`, c: 'bg-[#362b16] text-[#dfc07f] border border-[#6e5528]' } : undefined,
     sur_mesure: open ? { t: `${open}`, c: 'bg-[#1d3b29] text-[#a7d4b8]' } : undefined,
     livraisons: liv ? { t: `${liv}`, c: 'bg-[#1d3b29] text-[#a7d4b8]' } : undefined,
+    base_neon: { t: 'SQL', c: 'bg-[#1d3b29] text-[#a7d4b8] border border-[#2d593e]' },
   };
 
   return (
@@ -134,7 +137,7 @@ export const Sidebar: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) =
 };
 
 export const Header: React.FC<{ onMenu: () => void }> = ({ onMenu }) => {
-  const { tab, setTab, currentUser, logout, products, can } = useErp();
+  const { tab, setTab, currentUser, logout, products, can, neonSyncStatus } = useErp();
   const low = products.filter(p => productStock(p) <= p.minStock).length;
   const [now] = useState(() => new Date());
   return (
@@ -148,6 +151,17 @@ export const Header: React.FC<{ onMenu: () => void }> = ({ onMenu }) => {
           {now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </span>
       </div>
+      {can('base_neon') && (
+        <button
+          onClick={() => setTab('base_neon')}
+          title="État de la base de données Cloud Neon PostgreSQL"
+          className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-[#164228] bg-[#eef5f0] border border-[#c4dccb] px-2.5 py-1 rounded-[4px] cursor-pointer hover:bg-[#e1efe5]"
+        >
+          <span className={clsx('w-1.5 h-1.5 rounded-full', neonSyncStatus === 'syncing' ? 'bg-[#b88222] animate-ping' : neonSyncStatus === 'error' ? 'bg-[#c23838]' : 'bg-[#1f6b3f]')} />
+          <Database className="w-3 h-3 text-[#164228]" />
+          <span>{neonSyncStatus === 'syncing' ? 'Synchro SQL…' : 'Neon SQL Connecté'}</span>
+        </button>
+      )}
       {low > 0 && can('stock') && (
         <button
           onClick={() => setTab('stock')}
